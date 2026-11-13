@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gauss Elimination Simulator</title>
+<style>
+:root{--navy:#183b68;--blue:#287bd1;--light:#eaf4ff;--purple:#6650bf;--border:#d6e1ee;--text:#203047;--muted:#63738a;--green:#087f5b;--greenbg:#e8fff4;--orange:#9a5b00}
+*{box-sizing:border-box}body{margin:0;background:#f4f7fb;color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{margin:14px;padding:24px 18px;background:linear-gradient(120deg,#17365f,#2c578b);border-radius:13px;text-align:center;color:#fff}
+h1{margin:0;font-size:clamp(25px,4vw,36px)}header p{margin:7px 0 0;color:#dbeafe}
+main{max-width:1200px;margin:auto;padding:0 14px 28px}.card{background:white;border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:18px;box-shadow:0 4px 14px #183b680a}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:end}.field label{display:block;font-weight:750;margin-bottom:6px}.field select,.field input{width:100%;border:1px solid #c6d4e5;border-radius:8px;padding:11px;font:inherit;background:white;color:var(--text)}
+.matrix-input{display:grid;gap:8px;margin-top:14px}.matrix-row{display:grid;gap:8px}.matrix-row input{text-align:center;min-width:0}
+button{border:0;border-radius:8px;padding:11px 16px;background:var(--blue);color:white;font:inherit;font-weight:750;cursor:pointer}button:hover{filter:brightness(.94)}button.secondary{background:#e8eef7;color:#23456d}button:disabled{opacity:.4;cursor:not-allowed}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:15px}.hint{font-size:12px;color:var(--muted);margin-top:6px}.error{display:none;padding:10px 12px;border-radius:8px;background:#fff0ee;color:#a52218;margin-top:12px}
+.section-title{font-size:20px;margin:0 0 12px}.equations{background:#f7faff;border:1px solid #dce8f6;border-radius:9px;padding:12px;margin-top:12px}
+.matrix-box{display:inline-block;border-left:3px solid #6e8bad;border-right:3px solid #6e8bad;padding:5px 9px;margin:6px 0;max-width:100%;overflow-x:auto}
+.matrix{border-collapse:separate;border-spacing:7px 5px;font-variant-numeric:tabular-nums}.matrix td{min-width:32px;text-align:center;padding:3px 6px;border-radius:5px}.matrix td.pivot{background:#ffe7a6;color:#7b4a00;font-weight:850}.matrix td.eliminated{background:#d8f8e6;color:#075e42;font-weight:750}.matrix td.rhs{border-left:2px solid #91a4bc;padding-left:12px}
+.steps{display:grid;gap:12px}.step{border:1px solid var(--border);border-radius:10px;overflow:hidden}.step-head{display:flex;gap:10px;align-items:center;background:#f0f6ff;padding:10px 12px;font-weight:800}.step-num{background:#287bd1;color:#fff;width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}.step-body{padding:12px}.op{font-weight:750;color:#244e7f}.current{outline:2px solid #72aef2}
+.result{background:var(--greenbg);border:1px solid #b9ecd2;color:#086247;border-radius:10px;padding:14px}.result h3{margin:0 0 6px}.solution{font-size:19px;font-weight:800}.note{color:var(--muted);font-size:13px}.badge{display:inline-block;padding:3px 8px;border-radius:99px;background:#edf2f8;color:#4a607b;font-size:12px;font-weight:800}
+@media(max-width:700px){.controls{grid-template-columns:1fr}.card{padding:13px}.matrix{border-spacing:3px 4px}.matrix td{min-width:24px;padding:2px}.matrix-box{max-width:100%}}
+</style>
+</head>
+<body>
+<header><h1>Gauss Elimination Simulator</h1><p>Solve linear systems by converting the augmented matrix to row-echelon form.</p></header>
+<main>
+<section class="card">
+  <h2 class="section-title">1. Set up your system</h2>
+  <div class="controls">
+    <div class="field"><label for="n">Number of equations / variables</label><select id="n"><option value="2">2 × 2 system</option><option value="3" selected>3 × 3 system</option><option value="4">4 × 4 system</option></select></div>
+    <div class="field"><label for="example">Example system</label><select id="example"><option value="demo" selected>Demo: unique solution</option><option value="none">No solution</option><option value="infinite">Infinitely many solutions</option><option value="custom">Custom input</option></select></div>
+  </div>
+  <div id="equationInputs" class="matrix-input"></div>
+  <div class="hint">Edit any coefficient or constant. Use negative values or decimals if needed.</div>
+  <div class="actions"><button id="solve">Solve step by step</button><button id="reset" class="secondary">Reset example</button></div>
+  <div id="error" class="error" role="alert"></div>
+</section>
+<section class="card">
+  <h2 class="section-title">2. Elimination walkthrough</h2>
+  <div id="walkIntro" class="note">Run the simulator to see each pivot and row operation.</div>
+  <div id="walkthrough" class="steps"></div>
+  <div class="actions"><button id="prev" class="secondary" disabled>← Previous step</button><button id="next" disabled>Next step →</button><button id="showAll" class="secondary" disabled>Show all steps</button></div>
+  <div id="final" style="margin-top:15px"></div>
+</section>
+<section class="card">
+  <h2 class="section-title">How Gauss elimination works</h2>
+  <ol>
+    <li>Write the system as an augmented matrix.</li>
+    <li>Choose a pivot in each column and swap rows if necessary.</li>
+    <li>Use row operations to make entries below each pivot zero.</li>
+    <li>Use back-substitution to calculate the variables.</li>
+  </ol>
+  <p class="note">Allowed row operations: swap two rows, multiply a row by a nonzero number, or add a multiple of one row to another row.</p>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let n=3, steps=[], cursor=0, finalHtml='';
+const examples={
+  demo:{n:3,A:[[2,1,-1],[-3,-1,2],[-2,1,2]],b:[8,-11,-3]},
+  none:{n:2,A:[[1,1],[2,2]],b:[2,5]},
+  infinite:{n:2,A:[[1,1],[2,2]],b:[2,4]}
+};
+function inputGrid(A,b){
+ n=A.length; $('n').value=String(n);
+ $('equationInputs').innerHTML=A.map((row,i)=>`<div class="matrix-row" style="grid-template-columns:repeat(${n+1},minmax(0,1fr))">${row.map((v,j)=>`<input aria-label="Equation ${i+1}, coefficient ${j+1}" type="number" step="any" value="${v}" data-r="${i}" data-c="${j}">`).join('')}<input aria-label="Equation ${i+1}, constant" type="number" step="any" value="${b[i]}" data-r="${i}" data-c="${n}"></div>`).join('');
+}
+function loadExample(){
+ const choice=$('example').value;
+ if(choice==='custom'){return}
+ const ex=examples[choice]||examples.demo;
+ inputGrid(ex.A,ex.b); $('error').style.display='none';
+}
+function resetBySize(){
+ const size=Number($('n').value);
+ const A=size===2?[[2,1],[1,-1]]:size===3?[[2,1,-1],[-3,-1,2],[-2,1,2]]:[[1,1,1,1],[2,-1,1,3],[1,2,-1,2],[3,1,2,1]];
+ const b=size===2?[5,1]:size===3?[8,-11,-3]:[10,9,4,7];
+ inputGrid(A,b); $('example').value='custom';
+}
+function readInput(){
+ const inputs=[...$('equationInputs').querySelectorAll('input')];
+ if(inputs.some(el=>el.value.trim()===''||!Number.isFinite(Number(el.value))))throw Error('Please fill in every coefficient and constant with a valid number.');
+ const A=Array.from({length:n},()=>Array(n)),b=Array(n);
+ inputs.forEach(el=>{const r=+el.dataset.r,c=+el.dataset.c;if(c===n)b[r]=Number(el.value);else A[r][c]=Number(el.value)});
+ return {A,b};
+}
+function clone(M){return M.map(r=>r.slice())}
+function fmt(x){if(Math.abs(x)<1e-10)x=0;return Number(x.toFixed(5)).toString()}
+function matrixHTML(M,pivot=null,eliminated=null){
+ return `<div class="matrix-box"><table class="matrix"><tbody>${M.map((row,i)=>`<tr>${row.map((v,j)=>{let cl='';if(pivot&&pivot.r===i&&pivot.c===j)cl='pivot';else if(eliminated&&eliminated.some(p=>p.r===i&&p.c===j))cl='eliminated';if(j===row.length-1)cl+=' rhs';return `<td class="${cl.trim()}">${fmt(v)}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function solveSystem(A,b){
+ const M=A.map((r,i)=>[...r,b[i]]), logs=[{title:'Starting augmented matrix',op:'Write the coefficients and constants as [A | b].',M:clone(M)}];
+ const eps=1e-9;let pivotRow=0,pivots=[];
+ for(let col=0;col<n&&pivotRow<n;col++){
+   let best=pivotRow;for(let r=pivotRow+1;r<n;r++)if(Math.abs(M[r][col])>Math.abs(M[best][col]))best=r;
+   if(Math.abs(M[best][col])<eps){logs.push({title:`Column ${col+1}: no pivot`,op:`All candidate entries in this column are approximately zero, so move to the next column.`,M:clone(M)});continue}
+   if(best!==pivotRow){[M[best],M[pivotRow]]=[M[pivotRow],M[best]];logs.push({title:`Swap R${best+1} and R${pivotRow+1}`,op:`R${best+1} ↔ R${pivotRow+1} (move a nonzero pivot into position).`,M:clone(M),pivot:{r:pivotRow,c:col}})}
+   const pivot=M[pivotRow][col];pivots.push({r:pivotRow,c:col});
+   logs.push({title:`Pivot at row ${pivotRow+1}, column ${col+1}`,op:`Pivot = ${fmt(pivot)}. Eliminate entries below it in column ${col+1}.`,M:clone(M),pivot:{r:pivotRow,c:col}});
+   for(let r=pivotRow+1;r<n;r++){
+     if(Math.abs(M[r][col])<eps)continue;
+     const factor=M[r][col]/M[pivotRow][col];
+     for(let j=col;j<=n;j++)M[r][j]-=factor*M[pivotRow][j];
+     M[r][col]=0;
+     logs.push({title:`Eliminate entry in R${r+1}`,op:`R${r+1} ← R${r+1} − (${fmt(factor)})R${pivotRow+1}`,M:clone(M),pivot:{r:pivotRow,c:col},eliminated:[{r,c:col}]});
+   }
+   pivotRow++;
+ }
+ logs.push({title:'Row-echelon form',op:'All entries below the pivots are zero. Check for consistency, then back-substitute.',M:clone(M)});
+ let inconsistent=false;
+ for(let r=0;r<n;r++)if(M[r].slice(0,n).every(v=>Math.abs(v)<eps)&&Math.abs(M[r][n])>eps)inconsistent=true;
+ let rank=0;for(let r=0;r<n;r++)if(M[r].slice(0,n).some(v=>Math.abs(v)>eps))rank++;
+ let solution=null,kind='';
+ if(inconsistent)kind='none';
+ else if(rank<n)kind='infinite';
+ else{
+   solution=Array(n).fill(0);
+   for(let r=n-1;r>=0;r--){
+     let c=-1;for(let j=0;j<n;j++)if(Math.abs(M[r][j])>eps){c=j;break}
+     if(c<0)continue;
+     let val=M[r][n];for(let j=c+1;j<n;j++)val-=M[r][j]*solution[j];
+     solution[c]=val/M[r][c];
+   }
+   kind='unique';
+   logs.push({title:'Back-substitution',op:'Start from the last equation and substitute upward to solve for each variable.',M:clone(M)});
+ }
+ return {logs,kind,solution,rank,M};
+}
+function render(){
+ const visible=steps.slice(0,cursor+1);
+ $('walkthrough').innerHTML=visible.map((s,i)=>`<article class="step ${i===cursor?'current':''}"><div class="step-head"><span class="step-num">${i+1}</span>${s.title}</div><div class="step-body"><div>${s.op}</div>${matrixHTML(s.M,s.pivot,s.eliminated)}</div></article>`).join('');
+ $('prev').disabled=cursor<=0;$('next').disabled=cursor>=steps.length-1;$('showAll').disabled=steps.length===0;
+ $('final').innerHTML=cursor===steps.length-1?finalHtml:'';
+ $('walkIntro').textContent=`Step ${cursor+1} of ${steps.length}. Yellow marks a pivot; green marks an entry eliminated to zero.`;
+}
+function run(){
+ try{
+  $('error').style.display='none';n=Number($('n').value);const {A,b}=readInput();const res=solveSystem(A,b);steps=res.logs;cursor=0;
+  if(res.kind==='unique'){
+   finalHtml=`<div class="result"><h3>Unique solution</h3><div class="solution">${res.solution.map((v,i)=>`x<sub>${i+1}</sub> = ${fmt(v)}`).join(' &nbsp; · &nbsp; ')}</div><div>Rank of coefficient matrix = ${res.rank}. Rank equals the number of variables, so the solution is unique.</div></div>`;
+  }else if(res.kind==='none'){
+   finalHtml=`<div class="result" style="background:#fff7e6;border-color:#f1d38a;color:#805300"><h3>No solution</h3>The system is inconsistent: a row represents 0 = a nonzero number. There is no value of the variables that satisfies every equation.</div>`;
+  }else{
+   finalHtml=`<div class="result" style="background:#eef4ff;border-color:#c9d9ff;color:#244b83"><h3>Infinitely many solutions</h3>The system is consistent but has fewer pivots than variables. At least one variable is free, so there are infinitely many solutions.</div>`;
+  }
+  render();
+ }catch(e){$('error').textContent=e.message;$('error').style.display='block'}
+}
+$('solve').addEventListener('click',run);
+$('reset').addEventListener('click',()=>{loadExample();run()});
+$('n').addEventListener('change',resetBySize);
+$('example').addEventListener('change',loadExample);
+$('prev').addEventListener('click',()=>{if(cursor>0){cursor--;render()}});
+$('next').addEventListener('click',()=>{if(cursor<steps.length-1){cursor++;render()}});
+$('showAll').addEventListener('click',()=>{cursor=steps.length-1;render()});
+loadExample();run();
+</script>
+</body>
+</html>
